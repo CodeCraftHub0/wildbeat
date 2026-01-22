@@ -1,80 +1,92 @@
 # Wildbeat Safari Tours
 
-A professional tourism website for Ilyce "Wildbeat" Umuhoza, a safari guide based in Rwanda specializing in Akagera National Park, Nyungwe Forest, Gorilla Trekking, and City Tours.
+Full-stack safari tourism site for Ilyce "Wildbeat" Umuhoza. The project combines a Vite/React frontend with an Express + SQLite backend to showcase tours, capture bookings, collect reviews, and manage donation flows.
 
-## Features
+## Feature Snapshot
 
-- **Responsive Design**: Mobile-first approach with Tailwind CSS
-- **Modern UI**: Clean, safari-themed design with warm earth tones
-- **Interactive Components**: Smooth animations with Framer Motion
-- **Multi-page Application**: React Router for seamless navigation
-- **Booking System**: 3-step booking wizard for tour reservations
-- **Photo Gallery**: Filterable image gallery with lightbox
-- **Review System**: Customer testimonials and review submission
-- **Support Page**: Donation tiers for conservation efforts
+- Multi-section marketing site with hero, featured tours, testimonials, and gallery views
+- Three-step booking flow that posts booking requests to the Express API
+- Review submission flow with public testimonials
+- Dynamically managed Support page with admin-controlled hero copy, causes, donation tiers, and payment methods
+- Payment initiation service that routes donations to Stripe, Flutterwave, or M-Pesa depending on the configured method
+- Admin utilities for editing support content, payment methods, and reviewing donations (requires admin session token)
 
-## Tech Stack
+## Architecture Overview
 
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Tailwind CSS** for styling
-- **Framer Motion** for animations
-- **React Router DOM** for navigation
-- **Lucide React** for icons
+| Layer | Description |
+|-------|-------------|
+| Frontend | React 18 + TypeScript, Vite, Tailwind CSS, Shadcn UI primitives, Framer Motion animations |
+| Backend | Express server with SQLite persistence, REST endpoints for tours, bookings, reviews, gallery, donations, and support content |
+| Payments | Stripe SDK, Flutterwave REST API, and M-Pesa STK push integration via Axios |
+| Auth | Email/password signup and login handled by Express, bcrypt hashing, session tokens stored in SQLite |
 
-## Getting Started
+Key backend helpers live in [backend/server.js](backend/server.js) and database schema/seed logic in [backend/setup-database.js](backend/setup-database.js).
 
-1. Install dependencies:
+## Setup
+
+### Frontend (Vite app)
+
 ```bash
 npm install
-```
-
-2. Start development server:
-```bash
 npm run dev
 ```
 
-3. Build for production:
+### Backend (Express API)
+
 ```bash
-npm run build
+cd backend
+npm install
+npm run setup-db
+npm run start
 ```
 
-## Project Structure
+Environment variables for payments and email live in `backend/.env`. See [PAYMENT_SETUP.md](PAYMENT_SETUP.md) for required keys.
+
+## Current Access Matrix
+
+| Feature | Guest | Admin | Notes |
+|---------|-------|-------|-------|
+| View tours | Yes | Yes | `GET /api/tours` is public |
+| Book tours | Requires login | Requires login | `POST /api/bookings` expects a valid session token (automatically attached when logged in) |
+| Upload gallery photos | No UI | No UI | `POST /api/gallery` exists but no frontend control or auth guard |
+| Delete gallery photos | No | No | Endpoint not implemented |
+| Leave reviews | Yes | Yes | `POST /api/reviews` is open to all users |
+| Delete reviews | No | No | Removal endpoints not implemented |
+| Subscribe to newsletter | Not available | Not available | No subscription routes |
+| Access admin support manager | No | Yes | `/admin/support` requires admin session and calls protected endpoints |
+| Manage booking records | No | API only | `GET /api/bookings` is admin-protected; UI not built yet |
+| Moderate reviews | No | No | Not implemented |
+| Manage payment methods | No | Yes | Admin-only support payment APIs power `/admin/support` |
+| View donation history | No | Yes | `/api/donations` admin endpoints feed the donations dashboard |
+
+## Frontend Structure
 
 ```
 src/
 ├── components/
-│   ├── layout/          # Header, Footer
-│   ├── home/            # Homepage sections
-│   └── ui/              # Reusable UI components
-├── pages/               # Route components
-├── hooks/               # Custom React hooks
-├── lib/                 # Utility functions
-└── assets/              # Images and static files
+│   ├── layout/
+│   ├── home/
+│   └── ui/
+├── pages/
+├── hooks/
+├── lib/
+└── assets/
 ```
 
-## Pages
+## Backend Highlights
 
-- **Home** (`/`) - Hero, featured tours, about, testimonials
-- **Tours** (`/tours`) - All available safari experiences
-- **Gallery** (`/gallery`) - Photo gallery with filters
-- **Reviews** (`/reviews`) - Customer testimonials and review form
-- **Book** (`/book`) - 3-step booking wizard
-- **Support** (`/support`) - Donation page for conservation
+- Uses SQLite with helper wrappers (`dbAll`, `dbGet`, `dbRun`) for promise-based queries
+- Tables include `users`, `sessions`, `tours`, `bookings`, `reviews`, `gallery`, `donation_types`, `support_*` tables, and `donations`
+- Auth routes: `/api/auth/signup`, `/api/auth/login`, `/api/auth/logout`
+- Support admin routes allow CRUD for hero copy, causes, and payment methods with JSON config blobs
+- Payment initiation endpoint `/api/payments/initiate` selects provider logic based on method integration key
 
-## Design System
+## Additional Documentation
 
-### Colors
-- **Safari Gold**: `hsl(36, 55%, 55%)` - Primary accent color
-- **Safari Sand**: `hsl(40, 50%, 75%)` - Light backgrounds
-- **Safari Brown**: `hsl(30, 45%, 25%)` - Dark text and backgrounds
-- **Safari Olive**: `hsl(55, 50%, 35%)` - Secondary accent
-- **Safari Terracotta**: `hsl(18, 85%, 30%)` - Price badges and highlights
-- **Safari Cream**: `hsl(40, 35%, 92%)` - Light backgrounds and text
-
-### Typography
-- **Headings**: Playfair Display (serif)
-- **Body Text**: Inter (sans-serif)
+- [PAYMENT_SETUP.md](PAYMENT_SETUP.md)
+- [STRIPE_SETUP.md](STRIPE_SETUP.md)
+- [backend/README.md](backend/README.md)
+- [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## License
 

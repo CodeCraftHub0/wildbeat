@@ -7,15 +7,24 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const Stripe = require('stripe');
+const axios = require('axios');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Stripe configuration
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_demo');
 
 // Middleware
-app.use(cors());
+const allowedOrigins = process.env.CLIENT_ORIGIN
+  ? process.env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : undefined;
+
+const corsOptions = allowedOrigins
+  ? { origin: allowedOrigins, credentials: true }
+  : { origin: '*' };
+
+app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
@@ -29,6 +38,7 @@ const transporter = nodemailer.createTransport({
 });
 
 const ADMIN_EMAIL = 'iliceumuhoza11@gmail.com';
+const ADMIN_PASSCODE = '181950';
 const dbPath = path.join(__dirname, 'wildbeat.db');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -38,6 +48,47 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
+// Database helpers
+const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
+  db.all(sql, params, (err, rows) => {
+    if (err) {
+      return reject(err);
+    }
+    resolve(rows);
+  });
+});
+
+const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
+  db.get(sql, params, (err, row) => {
+    if (err) {
+      return reject(err);
+    }
+    resolve(row);
+  });
+});
+
+const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+  db.run(sql, params, function(err) {
+    if (err) {
+      return reject(err);
+    }
+    resolve({ id: this.lastID, changes: this.changes });
+  });
+});
+
+const parseJSON = (value, fallback = {}) => {
+  if (!value) {
+    return fallback;
+  }
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return fallback;
+  }
+};
+
+const generateReference = (prefix = 'WB') => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+
 // Auth middleware
 const authenticateToken = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -46,6 +97,7 @@ const authenticateToken = (req, res, next) => {
   db.get('SELECT u.* FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime("now")', [token], (err, user) => {
     if (err || !user) return res.status(403).json({ error: 'Invalid token' });
     req.user = user;
+    req.token = token;
     next();
   });
 };
@@ -54,6 +106,103 @@ const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
   next();
 };
+
+const sanitizeUser = (user) => ({
+  id: user.id,
+  email: user.email,
+  name: user.name,
+  role: user.role
+});
+
+const createSession = async (userId) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  await dbRun(
+    'INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, datetime("now", "+7 days"))',
+    [userId, token]
+  );
+  return token;
+};
+
+// ===== AUTH API =====
+
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const { email, password, name, adminCode } = req.body;
+
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
+    const existingUser = await dbGet('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingUser) {
+      return res.status(409).json({ error: 'Email is already registered' });
+    }
+
+    const normalizedAdminCode = typeof adminCode === 'string' ? adminCode.trim() : '';
+    const isAdminSignup = normalizedAdminCode === ADMIN_PASSCODE || email === ADMIN_EMAIL;
+
+    if (normalizedAdminCode && normalizedAdminCode !== ADMIN_PASSCODE && email !== ADMIN_EMAIL) {
+      return res.status(400).json({ error: 'Invalid admin code' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const role = isAdminSignup ? 'admin' : 'guest';
+
+    await dbRun(
+      'INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)',
+      [email, hashedPassword, name, role]
+    );
+
+    res.status(201).json({ message: 'Account created successfully', role });
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.status(500).json({ error: 'Failed to create account' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const user = await dbGet('SELECT * FROM users WHERE email = ?', [email]);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    await dbRun('DELETE FROM sessions WHERE user_id = ?', [user.id]);
+    const token = await createSession(user.id);
+
+    res.json({
+      token,
+      user: sanitizeUser(user)
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Failed to log in' });
+  }
+});
+
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+  try {
+    const token = req.token;
+    if (token) {
+      await dbRun('DELETE FROM sessions WHERE token = ?', [token]);
+    }
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Failed to log out' });
+  }
+});
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -229,6 +378,318 @@ app.get('/api/gallery', (req, res) => {
 
 // ===== DONATION TYPES API =====
 
+// ===== SUPPORT PAGE CONTENT API =====
+
+app.get('/api/support-page', async (req, res) => {
+  try {
+    const settings = await dbGet('SELECT * FROM support_page_settings WHERE id = 1');
+    const causes = await dbAll('SELECT * FROM support_causes WHERE is_active = 1 ORDER BY sort_order ASC, id ASC');
+    const donationTypesRaw = await dbAll('SELECT * FROM donation_types WHERE is_active = 1 ORDER BY sort_order ASC, id ASC');
+    const paymentMethodsRaw = await dbAll('SELECT * FROM support_payment_methods WHERE is_active = 1 ORDER BY sort_order ASC, id ASC');
+
+    const donationTypes = donationTypesRaw.map((row) => ({
+      ...row,
+      benefits: row.benefits ? row.benefits.split(',') : []
+    }));
+
+    const paymentMethods = paymentMethodsRaw.map(({ config, ...method }) => method);
+
+    res.json({
+      settings,
+      causes,
+      donationTypes,
+      paymentMethods
+    });
+  } catch (error) {
+    console.error('Support page fetch error:', error);
+    res.status(500).json({ error: 'Failed to load support page data' });
+  }
+});
+
+app.put('/api/support-page/settings', authenticateToken, requireAdmin, async (req, res) => {
+  const {
+    hero_kicker,
+    hero_title,
+    hero_subtitle,
+    hero_description,
+    hero_cta_label,
+    hero_cta_link,
+    stats_label_one,
+    stats_value_one,
+    stats_label_two,
+    stats_value_two,
+    stats_label_three,
+    stats_value_three,
+    custom_title,
+    custom_description,
+    custom_button_label,
+    custom_button_link
+  } = req.body;
+
+  try {
+    const existing = await dbGet('SELECT id FROM support_page_settings WHERE id = 1');
+
+    if (existing) {
+      await dbRun(
+        `UPDATE support_page_settings SET
+          hero_kicker = ?,
+          hero_title = ?,
+          hero_subtitle = ?,
+          hero_description = ?,
+          hero_cta_label = ?,
+          hero_cta_link = ?,
+          stats_label_one = ?,
+          stats_value_one = ?,
+          stats_label_two = ?,
+          stats_value_two = ?,
+          stats_label_three = ?,
+          stats_value_three = ?,
+          custom_title = ?,
+          custom_description = ?,
+          custom_button_label = ?,
+          custom_button_link = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = 1`,
+        [
+          hero_kicker,
+          hero_title,
+          hero_subtitle,
+          hero_description,
+          hero_cta_label,
+          hero_cta_link,
+          stats_label_one,
+          stats_value_one,
+          stats_label_two,
+          stats_value_two,
+          stats_label_three,
+          stats_value_three,
+          custom_title,
+          custom_description,
+          custom_button_label,
+          custom_button_link
+        ]
+      );
+    } else {
+      await dbRun(
+        `INSERT INTO support_page_settings (
+          id,
+          hero_kicker,
+          hero_title,
+          hero_subtitle,
+          hero_description,
+          hero_cta_label,
+          hero_cta_link,
+          stats_label_one,
+          stats_value_one,
+          stats_label_two,
+          stats_value_two,
+          stats_label_three,
+          stats_value_three,
+          custom_title,
+          custom_description,
+          custom_button_label,
+          custom_button_link
+        ) VALUES (
+          1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )`,
+        [
+          hero_kicker,
+          hero_title,
+          hero_subtitle,
+          hero_description,
+          hero_cta_label,
+          hero_cta_link,
+          stats_label_one,
+          stats_value_one,
+          stats_label_two,
+          stats_value_two,
+          stats_label_three,
+          stats_value_three,
+          custom_title,
+          custom_description,
+          custom_button_label,
+          custom_button_link
+        ]
+      );
+    }
+
+    const updated = await dbGet('SELECT * FROM support_page_settings WHERE id = 1');
+    res.json({ message: 'Support page settings saved', settings: updated });
+  } catch (error) {
+    console.error('Support settings error:', error);
+    res.status(500).json({ error: 'Failed to save support settings' });
+  }
+});
+
+app.get('/api/support-causes', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const causes = await dbAll('SELECT * FROM support_causes ORDER BY sort_order ASC, id ASC');
+    res.json(causes);
+  } catch (error) {
+    console.error('Support causes fetch error:', error);
+    res.status(500).json({ error: 'Failed to load support causes' });
+  }
+});
+
+app.post('/api/support-causes', authenticateToken, requireAdmin, async (req, res) => {
+  const { id, title, description, icon, sort_order = 0, is_active = 1 } = req.body;
+
+  if (!title) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  try {
+    if (id) {
+      await dbRun(
+        `UPDATE support_causes SET
+          title = ?,
+          description = ?,
+          icon = ?,
+          sort_order = ?,
+          is_active = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?`,
+        [title, description, icon, sort_order, is_active ? 1 : 0, id]
+      );
+      res.json({ message: 'Support area updated', id });
+    } else {
+      const result = await dbRun(
+        'INSERT INTO support_causes (title, description, icon, sort_order, is_active) VALUES (?, ?, ?, ?, ?)',
+        [title, description, icon, sort_order, is_active ? 1 : 0]
+      );
+      res.json({ message: 'Support area created', id: result.id });
+    }
+  } catch (error) {
+    console.error('Support cause save error:', error);
+    res.status(500).json({ error: 'Failed to save support area' });
+  }
+});
+
+app.delete('/api/support-causes/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await dbRun('UPDATE support_causes SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [id]);
+    res.json({ message: 'Support area deactivated' });
+  } catch (error) {
+    console.error('Support cause delete error:', error);
+    res.status(500).json({ error: 'Failed to deactivate support area' });
+  }
+});
+
+app.get('/api/support-payment-methods', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const methods = await dbAll('SELECT * FROM support_payment_methods ORDER BY sort_order ASC, id ASC');
+    res.json(methods.map((method) => ({
+      ...method,
+      config: parseJSON(method.config, {})
+    })));
+  } catch (error) {
+    console.error('Support payment methods fetch error:', error);
+    res.status(500).json({ error: 'Failed to load payment methods' });
+  }
+});
+
+app.post('/api/support-payment-methods', authenticateToken, requireAdmin, async (req, res) => {
+  const {
+    id,
+    name,
+    tagline,
+    description,
+    integration_key,
+    button_label,
+    icon,
+    currency = 'USD',
+    config,
+    sort_order = 0,
+    is_active = 1
+  } = req.body;
+
+  if (!name || !integration_key) {
+    return res.status(400).json({ error: 'Name and integration key are required' });
+  }
+
+  const configString = typeof config === 'string' ? config : JSON.stringify(config || {});
+
+  try {
+    if (id) {
+      await dbRun(
+        `UPDATE support_payment_methods SET
+          name = ?,
+          tagline = ?,
+          description = ?,
+          integration_key = ?,
+          button_label = ?,
+          icon = ?,
+          currency = ?,
+          config = ?,
+          sort_order = ?,
+          is_active = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?`,
+        [
+          name,
+          tagline,
+          description,
+          integration_key,
+          button_label,
+          icon,
+          currency,
+          configString,
+          sort_order,
+          is_active ? 1 : 0,
+          id
+        ]
+      );
+      res.json({ message: 'Payment method updated', id });
+    } else {
+      const result = await dbRun(
+        `INSERT INTO support_payment_methods (
+          name,
+          tagline,
+          description,
+          integration_key,
+          button_label,
+          icon,
+          currency,
+          config,
+          sort_order,
+          is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          name,
+          tagline,
+          description,
+          integration_key,
+          button_label,
+          icon,
+          currency,
+          configString,
+          sort_order,
+          is_active ? 1 : 0
+        ]
+      );
+      res.json({ message: 'Payment method created', id: result.id });
+    }
+  } catch (error) {
+    console.error('Support payment method save error:', error);
+    res.status(500).json({ error: 'Failed to save payment method' });
+  }
+});
+
+app.delete('/api/support-payment-methods/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await dbRun('UPDATE support_payment_methods SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [id]);
+    res.json({ message: 'Payment method deactivated' });
+  } catch (error) {
+    console.error('Support payment method delete error:', error);
+    res.status(500).json({ error: 'Failed to deactivate payment method' });
+  }
+});
+
+
 app.get('/api/donation-types', (req, res) => {
   db.all('SELECT * FROM donation_types WHERE is_active = 1 ORDER BY sort_order ASC', (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -283,8 +744,204 @@ app.delete('/api/donation-types/:id', authenticateToken, requireAdmin, (req, res
   });
 });
 
-// ===== STRIPE PAYMENT API =====
+// ===== PAYMENT API =====
 
+app.post('/api/payments/initiate', async (req, res) => {
+  const {
+    method_id,
+    donation_type_id,
+    amount,
+    currency,
+    name,
+    email,
+    phone,
+    message,
+    return_url
+  } = req.body;
+
+  if (!method_id) {
+    return res.status(400).json({ error: 'Payment method is required' });
+  }
+
+  const numericAmount = Number(amount);
+  if (!numericAmount || numericAmount <= 0) {
+    return res.status(400).json({ error: 'Invalid amount' });
+  }
+
+  if (!name) {
+    return res.status(400).json({ error: 'Donor name is required' });
+  }
+
+  try {
+    const method = await dbGet('SELECT * FROM support_payment_methods WHERE id = ?', [method_id]);
+
+    if (!method || !method.is_active) {
+      return res.status(404).json({ error: 'Payment method not found' });
+    }
+
+    const config = parseJSON(method.config, {});
+    const selectedCurrency = (currency || method.currency || 'USD').toString().toUpperCase();
+    const reference = generateReference('WB');
+
+    switch (method.integration_key) {
+      case 'stripe_card': {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(numericAmount * 100),
+          currency: selectedCurrency.toLowerCase(),
+          receipt_email: email,
+          metadata: {
+            donor_name: name,
+            donor_email: email,
+            donation_type_id: donation_type_id || '',
+            reference
+          }
+        });
+
+        return res.json({
+          type: 'stripe',
+          provider: 'stripe',
+          clientSecret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
+          reference
+        });
+      }
+
+      case 'flutterwave_mobile':
+      case 'flutterwave_wallet':
+      case 'flutterwave_card': {
+        if (!process.env.FLUTTERWAVE_SECRET_KEY) {
+          return res.status(500).json({ error: 'Flutterwave secret key is not configured' });
+        }
+
+        const payload = {
+          tx_ref: reference,
+          amount: numericAmount.toString(),
+          currency: selectedCurrency,
+          redirect_url: return_url || process.env.FLUTTERWAVE_REDIRECT_URL || 'https://wildbeat.example.com/support/thank-you',
+          customer: {
+            email,
+            name,
+            phonenumber: phone
+          },
+          customizations: {
+            title: 'Wildbeat Support',
+            description: `Donation via ${method.name}`
+          }
+        };
+
+        if (config.payment_options) {
+          payload.payment_options = config.payment_options;
+        }
+
+        if (config.meta) {
+          payload.meta = config.meta;
+        }
+
+        if (config.subaccounts) {
+          payload.subaccounts = config.subaccounts;
+        }
+
+        const flutterwaveResponse = await axios.post(
+          'https://api.flutterwave.com/v3/payments',
+          payload,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (!flutterwaveResponse.data || flutterwaveResponse.data.status !== 'success') {
+          throw new Error('Flutterwave payment creation failed');
+        }
+
+        return res.json({
+          type: 'redirect',
+          provider: 'flutterwave',
+          reference,
+          link: flutterwaveResponse.data.data.link
+        });
+      }
+
+      case 'mpesa_stk': {
+        const consumerKey = process.env.MPESA_CONSUMER_KEY;
+        const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
+
+        if (!consumerKey || !consumerSecret) {
+          return res.status(500).json({ error: 'M-Pesa credentials are not configured' });
+        }
+
+        const mpesaBaseUrl = process.env.MPESA_BASE_URL || 'https://sandbox.safaricom.co.ke';
+        const authResponse = await axios.get(
+          `${mpesaBaseUrl}/oauth/v1/generate?grant_type=client_credentials`,
+          { auth: { username: consumerKey, password: consumerSecret } }
+        );
+
+        const accessToken = authResponse.data?.access_token;
+        if (!accessToken) {
+          throw new Error('Failed to obtain M-Pesa access token');
+        }
+
+        const businessShortcode = config.business_shortcode || process.env.MPESA_SHORTCODE;
+        const passkey = config.passkey || process.env.MPESA_PASSKEY;
+        const callbackUrl = config.callback || process.env.MPESA_CALLBACK_URL;
+
+        if (!businessShortcode || !passkey || !callbackUrl) {
+          return res.status(500).json({ error: 'M-Pesa configuration missing shortcode, passkey, or callback URL' });
+        }
+
+        if (!phone) {
+          return res.status(400).json({ error: 'Phone number is required for M-Pesa payments' });
+        }
+
+        const now = new Date();
+        const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+        const password = Buffer.from(`${businessShortcode}${passkey}${timestamp}`).toString('base64');
+
+        const mpesaPayload = {
+          BusinessShortCode: businessShortcode,
+          Password: password,
+          Timestamp: timestamp,
+          TransactionType: 'CustomerPayBillOnline',
+          Amount: Math.round(numericAmount),
+          PartyA: phone,
+          PartyB: businessShortcode,
+          PhoneNumber: phone,
+          CallBackURL: callbackUrl,
+          AccountReference: donation_type_id ? `DONATION-${donation_type_id}` : 'WILDBEAT',
+          TransactionDesc: message || `Wildbeat Support - ${method.name}`
+        };
+
+        const stkResponse = await axios.post(
+          `${mpesaBaseUrl}/mpesa/stkpush/v1/processrequest`,
+          mpesaPayload,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        const responseBody = stkResponse.data || {};
+        if (responseBody.ResponseCode !== '0') {
+          throw new Error(responseBody.errorMessage || 'M-Pesa STK push failed');
+        }
+
+        return res.json({
+          type: 'mpesa',
+          provider: 'mpesa',
+          reference: responseBody.CheckoutRequestID,
+          response: responseBody
+        });
+      }
+
+      default:
+        return res.status(400).json({ error: `Unsupported payment integration: ${method.integration_key}` });
+    }
+  } catch (error) {
+    console.error('Payment initiation error:', error);
+    res.status(500).json({ error: error.message || 'Failed to initiate payment' });
+  }
+});
+
+// Legacy Stripe payment intent endpoint (maintained for backward compatibility)
 app.post('/api/payments/create-intent', (req, res) => {
   const { amount, email, name } = req.body;
   if (!amount || amount < 1) {
@@ -318,10 +975,10 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), (re
 // ===== DONATIONS API =====
 
 app.post('/api/donations', (req, res) => {
-  const { donation_type_id, name, email, amount, payment_method, transaction_id, message } = req.body;
+  const { donation_type_id, name, email, amount, payment_method, transaction_id, message, status = 'completed' } = req.body;
   db.run(
     'INSERT INTO donations (donation_type_id, name, email, amount, payment_method, transaction_id, status, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [donation_type_id, name, email, amount, payment_method || 'stripe', transaction_id, 'completed', message],
+    [donation_type_id, name, email, amount, payment_method || 'stripe', transaction_id, status, message],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, message: 'Donation processed successfully' });

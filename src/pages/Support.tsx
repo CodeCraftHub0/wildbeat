@@ -1,12 +1,53 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import type { ElementType } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Heart, CreditCard, Smartphone, Building2, Wallet } from 'lucide-react'
+import { apiUrl } from '@/lib/api-local'
+import {
+  Heart,
+  ArrowRight,
+  Mountain,
+  Users,
+  GraduationCap,
+  Globe2,
+  ShieldCheck,
+  CreditCard,
+  Smartphone,
+  PhoneCall,
+  Wallet,
+  Loader2
+} from 'lucide-react'
 
-interface DonationType {
+interface SupportSettings {
+  hero_kicker: string | null
+  hero_title: string | null
+  hero_subtitle: string | null
+  hero_description: string | null
+  hero_cta_label: string | null
+  hero_cta_link: string | null
+  stats_label_one: string | null
+  stats_value_one: string | null
+  stats_label_two: string | null
+  stats_value_two: string | null
+  stats_label_three: string | null
+  stats_value_three: string | null
+  custom_title: string | null
+  custom_description: string | null
+  custom_button_label: string | null
+  custom_button_link: string | null
+}
+
+interface SupportCause {
+  id: number
+  title: string
+  description: string
+  icon?: string | null
+}
+
+interface DonationTier {
   id: number
   title: string
   amount: number
@@ -16,63 +57,128 @@ interface DonationType {
 }
 
 interface PaymentMethod {
-  id: string
+  id: number
   name: string
-  icon: React.ReactNode
-  description: string
-  color: string
+  tagline?: string | null
+  description?: string | null
+  integration_key: string
+  button_label?: string | null
+  icon?: string | null
+  currency?: string | null
 }
 
-const PAYMENT_METHODS: PaymentMethod[] = [
-  {
-    id: 'card',
-    name: 'Credit/Debit Card',
-    icon: <CreditCard className="w-6 h-6" />,
-    description: 'Visa, Mastercard, American Express',
-    color: 'from-blue-500 to-blue-600'
-  },
-  {
-    id: 'mobile',
-    name: 'Mobile Money',
-    icon: <Smartphone className="w-6 h-6" />,
-    description: 'M-Pesa, Airtel Money, MTN',
-    color: 'from-green-500 to-green-600'
-  },
-  {
-    id: 'bank',
-    name: 'Bank Transfer',
-    icon: <Building2 className="w-6 h-6" />,
-    description: 'Direct bank account transfer',
-    color: 'from-purple-500 to-purple-600'
-  },
-  {
-    id: 'wallet',
-    name: 'Digital Wallet',
-    icon: <Wallet className="w-6 h-6" />,
-    description: 'Google Pay, PayPal, Apple Pay',
-    color: 'from-orange-500 to-orange-600'
-  }
-]
+interface SupportPageResponse {
+  settings?: SupportSettings | null
+  causes: SupportCause[]
+  donationTypes: DonationTier[]
+  paymentMethods: PaymentMethod[]
+}
+
+type SelectedTier =
+  | (DonationTier & { isCustom?: false })
+  | ({
+      id: 'custom'
+      title: string
+      amount: number
+      description: string
+      benefits: string[]
+      icon_color?: string
+      isCustom: true
+    })
+
+const iconLibrary: Record<string, ElementType> = {
+  Heart,
+  Mountain,
+  Users,
+  GraduationCap,
+  Globe2,
+  ShieldCheck,
+  CreditCard,
+  Smartphone,
+  PhoneCall,
+  Wallet
+}
 
 export const Support = () => {
-  const [selectedType, setSelectedType] = useState<DonationType | null>(null)
-  const [selectedMethod, setSelectedMethod] = useState<string | null>(null)
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' })
+  const [selectedTier, setSelectedTier] = useState<SelectedTier | null>(null)
+  const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null)
+  const [customAmount, setCustomAmount] = useState('')
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState('')
 
-  const { data: donationTypes = [], isLoading } = useQuery({
-    queryKey: ['donation-types'],
+  const { data, isLoading, error } = useQuery<SupportPageResponse>({
+    queryKey: ['support-page'],
     queryFn: async () => {
-      const response = await fetch('/api/donation-types')
-      if (!response.ok) throw new Error('Failed to fetch')
+      const response = await fetch(apiUrl('/support-page'))
+      if (!response.ok) {
+        throw new Error('Failed to load support details')
+      }
       return response.json()
     }
   })
 
+  const settings = data?.settings ?? null
+  const causes = data?.causes ?? []
+  const donationTypes = data?.donationTypes ?? []
+  const paymentMethods = data?.paymentMethods ?? []
+
+  const buttonLabel = useMemo(() => {
+    if (!selectedTier) return 'Select an amount'
+    const amount = selectedTier.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return `Support $${amount}`
+  }, [selectedTier])
+
+  const handleCustomSelection = () => {
+    const amountValue = Number(customAmount)
+    if (!amountValue || amountValue <= 0) {
+      setSubmitMessage('Please enter a valid custom amount.')
+      return
+    }
+
+    setSelectedTier({
+      id: 'custom',
+      title: settings?.custom_title || 'Custom Amount',
+      amount: amountValue,
+      description: settings?.custom_description || '',
+      benefits: [],
+      icon_color: '#D4A574',
+      isCustom: true
+    })
+    setSubmitMessage('')
+  }
+
+  const resetForm = () => {
+    setSelectedTier(null)
+    setSelectedMethodId(null)
+    setCustomAmount('')
+    setFormData({ name: '', email: '', phone: '', message: '' })
+  }
+
   const handleDonate = async () => {
-    if (!selectedType || !formData.name || !formData.email || !selectedMethod) {
-      alert('Please fill in all required fields')
+    if (!selectedTier) {
+      setSubmitMessage('Select a support level to continue.')
+      return
+    }
+
+    if (!selectedMethodId) {
+      setSubmitMessage('Choose a payment method to continue.')
+      return
+    }
+
+    if (!formData.name || !formData.email) {
+      setSubmitMessage('Name and email are required.')
+      return
+    }
+
+    if (!selectedTier.amount || selectedTier.amount <= 0) {
+      setSubmitMessage('The selected amount is not valid.')
+      return
+    }
+
+    const method = paymentMethods.find((m) => m.id === selectedMethodId)
+    if (!method) {
+      setSubmitMessage('Unable to find the selected payment method.')
       return
     }
 
@@ -80,237 +186,341 @@ export const Support = () => {
     setSubmitMessage('')
 
     try {
-      // For card payments, create a payment intent
-      if (selectedMethod === 'card') {
-        const intentResponse = await fetch('/api/payments/create-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: selectedType.amount,
-            email: formData.email,
-            name: formData.name
-          })
-        })
-
-        if (!intentResponse.ok) {
-          const error = await intentResponse.json()
-          throw new Error(error.error || 'Failed to create payment')
-        }
-
-        const { clientSecret } = await intentResponse.json()
-        console.log('Payment intent created:', clientSecret)
-        // In a real app, you'd redirect to Stripe or use Stripe Elements here
-        // For now, we'll proceed with the donation recording
-      }
-
-      // Record the donation
-      const donationResponse = await fetch('/api/donations', {
+      const response = await fetch(apiUrl('/payments/initiate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          donation_type_id: selectedType.id,
+          method_id: method.id,
+          donation_type_id: selectedTier.id === 'custom' ? null : selectedTier.id,
+          amount: selectedTier.amount,
+          currency: method.currency,
           name: formData.name,
           email: formData.email,
-          amount: selectedType.amount,
-          payment_method: selectedMethod,
-          transaction_id: `txn_${Date.now()}`,
-          message: formData.message
+          phone: formData.phone,
+          message: formData.message,
+          return_url: `${window.location.origin}/support/thank-you`
         })
       })
 
-      if (!donationResponse.ok) throw new Error('Failed to process donation')
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to initiate payment')
+      }
 
-      setSubmitMessage('✅ Thank you for your generous donation!')
-      setSelectedType(null)
-      setSelectedMethod(null)
-      setFormData({ name: '', email: '', message: '' })
+      const transactionReference = result.reference || `initiated-${Date.now()}`
 
-      setTimeout(() => setSubmitMessage(''), 5000)
-    } catch (error) {
-      setSubmitMessage(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      await fetch(apiUrl('/donations'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          donation_type_id: selectedTier.id === 'custom' ? null : selectedTier.id,
+          name: formData.name,
+          email: formData.email,
+          amount: selectedTier.amount,
+          payment_method: method.integration_key,
+          transaction_id: transactionReference,
+          message: formData.message,
+          status: result.type === 'mpesa' ? 'pending' : 'processing'
+        })
+      })
+
+      if (result.type === 'redirect' && result.link) {
+        setSubmitMessage('Redirecting you to our secure payment partner...')
+        setTimeout(() => {
+          window.location.href = result.link
+        }, 1200)
+        return
+      }
+
+      if (result.type === 'mpesa') {
+        setSubmitMessage(`Check your phone to authorize the M-Pesa payment. Reference: ${transactionReference}`)
+        resetForm()
+        return
+      }
+
+      if (result.type === 'stripe') {
+        setSubmitMessage('Payment initiated. Please complete the transaction in the secure card form that follows.')
+        return
+      }
+
+      setSubmitMessage('Payment initiated. Follow the provider instructions to complete your donation.')
+      resetForm()
+    } catch (err) {
+      setSubmitMessage(`❌ ${err instanceof Error ? err.message : 'Unable to process your donation right now.'}`)
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-amber-50">
+        <div className="flex items-center gap-2 text-amber-700">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>Preparing the support experience...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-amber-50">
+        <Card className="p-6 text-center max-w-md">
+          <h2 className="text-xl font-semibold text-red-600 mb-2">We could not load the support page</h2>
+          <p className="text-sm text-gray-600">Please refresh the page or contact the administrator.</p>
+        </Card>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white py-12">
-      <div className="container mx-auto px-4 max-w-6xl">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
-            <Heart className="w-8 h-8 text-red-600" />
+    <div className="min-h-screen bg-[#f8f1e7] pb-24">
+      <div className="bg-gradient-to-b from-[#f4e6d6] via-[#f8f1e7] to-transparent">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#fdf3ea] rounded-full mb-6">
+            <Heart className="w-8 h-8 text-[#d58b28]" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Support Our Mission</h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Your contribution directly supports wildlife conservation, community education, and sustainable tourism initiatives in Rwanda.
+          <p className="uppercase tracking-[0.3em] text-sm text-[#b2762c] mb-3">
+            {(settings?.hero_kicker || 'Join the Movement').toUpperCase()}
+          </p>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-serif text-[#3c2a1d] leading-tight mb-4">
+            {settings?.hero_title || "Support Wildbeat's Mission"}
+          </h1>
+          <p className="text-lg md:text-xl text-[#6d5a4a] max-w-3xl mx-auto">
+            {settings?.hero_subtitle || 'Help lyce “Wildbeat” Umuhoza promote sustainable tourism, protect wildlife, and empower local communities in Rwanda. Every contribution makes a difference.'}
           </p>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          {/* Donation Types */}
-          <div className="lg:col-span-2">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Choose Your Impact Level</h2>
-            {isLoading ? (
-              <p className="text-gray-600">Loading donation tiers...</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                {donationTypes.map((type: DonationType) => (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="text-center mb-20">
+          <h2 className="text-3xl sm:text-4xl font-serif text-[#3c2a1d] mb-4">Why Your Support Matters</h2>
+          <p className="text-[#6d5a4a] max-w-2xl mx-auto text-lg">
+            {settings?.hero_description || 'Tourism has the power to transform lives and protect our natural heritage. Your support helps create lasting positive impact in Rwanda.'}
+          </p>
+
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {causes.map((cause) => {
+              const Icon = iconLibrary[cause.icon || 'ShieldCheck'] || ShieldCheck
+              return (
+                <Card key={cause.id} className="p-8 text-left bg-white/80 shadow-sm border border-[#f0e2d4]">
+                  <div className="w-14 h-14 rounded-full bg-[#fdf3ea] flex items-center justify-center mb-5">
+                    <Icon className="w-7 h-7 text-[#d58b28]" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-[#3c2a1d] mb-3">{cause.title}</h3>
+                  <p className="text-[#6d5a4a] text-sm leading-relaxed">{cause.description}</p>
+                </Card>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="grid gap-12 lg:grid-cols-[2fr_1fr]">
+          <div>
+            <div className="flex flex-col gap-4 mb-8 text-center lg:text-left">
+              <h2 className="text-3xl font-serif text-[#3c2a1d]">Choose Your Level of Support</h2>
+              <p className="text-[#6d5a4a] text-lg">
+                Select a giving tier or choose a custom amount and invest in conservation, community empowerment, and eco-tourism education.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-2">
+              {donationTypes.map((tier) => {
+                const isActive = selectedTier?.id === tier.id
+                return (
                   <Card
-                    key={type.id}
-                    onClick={() => setSelectedType(type)}
-                    className={`p-6 cursor-pointer transition-all border-2 ${
-                      selectedType?.id === type.id
-                        ? 'border-amber-600 shadow-lg'
-                        : 'border-gray-200 hover:border-amber-300'
+                    key={tier.id}
+                    className={`relative h-full cursor-pointer border transition-all duration-200 ${
+                      isActive ? 'border-[#d58b28] shadow-lg ring-2 ring-[#f7d9ab]/80' : 'border-[#f0e2d4] hover:border-[#d58b28]/70 hover:shadow-md'
                     }`}
+                    onClick={() => setSelectedTier({ ...tier, isCustom: false })}
                   >
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-                      style={{ backgroundColor: type.icon_color + '20' }}
-                    >
-                      <Heart className="w-6 h-6" style={{ color: type.icon_color }} />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-1">{type.title}</h3>
-                    <p className="text-3xl font-bold text-amber-600 mb-3">${type.amount}</p>
-                    <p className="text-gray-600 text-sm mb-4">{type.description}</p>
-
-                    {type.benefits && type.benefits.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-gray-700 uppercase">Your Benefits:</p>
-                        <ul className="text-xs text-gray-600 space-y-1">
-                          {type.benefits.map((benefit, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <span className="text-amber-600 mt-1 flex-shrink-0">✓</span>
+                    <div className="p-7 flex flex-col h-full">
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center mb-5" style={{ backgroundColor: `${tier.icon_color || '#d58b28'}20` }}>
+                        <Heart className="w-6 h-6" style={{ color: tier.icon_color || '#d58b28' }} />
+                      </div>
+                      <h3 className="text-2xl font-semibold text-[#3c2a1d]">{tier.title}</h3>
+                      <p className="text-4xl font-bold text-[#d58b28] mt-2 mb-4">${tier.amount.toLocaleString()}</p>
+                      <p className="text-sm text-[#6d5a4a] leading-relaxed flex-1">{tier.description}</p>
+                      {tier.benefits?.length > 0 && (
+                        <ul className="mt-5 space-y-2 text-sm text-[#5a4636]">
+                          {tier.benefits.map((benefit, index) => (
+                            <li key={index} className="flex items-start gap-2">
+                              <span className="text-[#d58b28] mt-1">•</span>
                               <span>{benefit}</span>
                             </li>
                           ))}
                         </ul>
-                      </div>
-                    )}
+                      )}
+                      <Button
+                        type="button"
+                        variant={isActive ? 'hero' : 'safari'}
+                        className="mt-8 w-full flex items-center justify-center gap-2"
+                      >
+                        Support {tier.title}
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </Card>
-                ))}
-              </div>
-            )}
+                )
+              })}
+            </div>
 
-            {/* Payment Methods */}
-            {selectedType && (
-              <div className="mt-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Select Payment Method</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {PAYMENT_METHODS.map((method) => (
-                    <button
-                      key={method.id}
-                      onClick={() => setSelectedMethod(method.id)}
-                      className={`p-4 rounded-lg border-2 transition-all text-left ${
-                        selectedMethod === method.id
-                          ? 'border-amber-600 bg-amber-50'
-                          : 'border-gray-200 bg-white hover:border-amber-300'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg bg-gradient-to-br ${method.color} text-white`}>
-                          {method.icon}
+            <Card className="mt-8 p-8 bg-white/90 border border-[#f0e2d4]">
+              <h3 className="text-xl font-semibold text-[#3c2a1d] mb-2">{settings?.custom_title || 'Custom Amount'}</h3>
+              <p className="text-sm text-[#6d5a4a] mb-6">{settings?.custom_description || 'Want to contribute a different amount? Every donation helps support our mission.'}</p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Input
+                  value={customAmount}
+                  onChange={(event) => setCustomAmount(event.target.value)}
+                  type="number"
+                  min="1"
+                  placeholder="Enter custom amount"
+                  className="bg-white border-[#e4d4c5] text-[#3c2a1d]"
+                />
+                <Button
+                  type="button"
+                  onClick={handleCustomSelection}
+                  className="bg-[#d58b28] hover:bg-[#c37a22] text-white"
+                >
+                  {settings?.custom_button_label || 'Donate Custom Amount'}
+                </Button>
+              </div>
+            </Card>
+
+            {selectedTier && (
+              <div className="mt-12">
+                <h3 className="text-2xl font-serif text-[#3c2a1d] mb-6">Select Your Preferred Payment Method</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {paymentMethods.map((method) => {
+                    const Icon = iconLibrary[method.icon || 'CreditCard'] || CreditCard
+                    const isActive = selectedMethodId === method.id
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setSelectedMethodId(method.id)}
+                        className={`text-left rounded-xl border p-5 transition-all ${
+                          isActive
+                            ? 'border-[#d58b28] bg-[#fff7ec] shadow-md'
+                            : 'border-[#f0e2d4] bg-white hover:border-[#d58b28]/70'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-full bg-[#fdf3ea] flex items-center justify-center">
+                            <Icon className="w-6 h-6 text-[#d58b28]" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-[#3c2a1d]">{method.name}</p>
+                            {method.tagline && <p className="text-sm text-[#b08354]">{method.tagline}</p>}
+                            {method.description && <p className="text-sm text-[#6d5a4a] mt-2">{method.description}</p>}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-900">{method.name}</p>
-                          <p className="text-sm text-gray-600">{method.description}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Donation Summary */}
-          {selectedType && (
-            <div className="lg:col-span-1">
-              <Card className="p-6 sticky top-4">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Donation Summary</h3>
-
-                <div className="bg-amber-50 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-gray-600 mb-1">Donation Tier</p>
-                  <p className="text-2xl font-bold text-amber-600 mb-3">{selectedType.title}</p>
-                  <p className="text-3xl font-bold text-gray-900">${selectedType.amount}</p>
+          <div className="lg:pl-4">
+            <Card className="sticky top-8 border border-[#f0e2d4] bg-white/90 shadow-sm">
+              <div className="p-8">
+                <h3 className="text-2xl font-serif text-[#3c2a1d] mb-6">Donation Summary</h3>
+                <div className="rounded-xl bg-[#fff7ec] border border-[#f0e2d4] p-6 mb-6">
+                  <p className="text-sm uppercase tracking-wide text-[#b08354] mb-2">Selected Tier</p>
+                  <p className="text-xl font-semibold text-[#3c2a1d]">{selectedTier?.title || 'None selected yet'}</p>
+                  <p className="text-4xl font-bold text-[#d58b28] mt-3">{selectedTier ? `$${selectedTier.amount.toLocaleString()}` : '$0.00'}</p>
                 </div>
 
-                <div className="space-y-4 mb-6">
+                <div className="space-y-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                    <label className="block text-sm font-medium text-[#5a4636] mb-1">Full Name *</label>
                     <Input
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Your name"
+                      onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                      placeholder="Your full name"
+                      className="border-[#e4d4c5]"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <label className="block text-sm font-medium text-[#5a4636] mb-1">Email *</label>
                     <Input
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="your@email.com"
+                      onChange={(event) => setFormData({ ...formData, email: event.target.value })}
+                      placeholder="you@example.com"
+                      className="border-[#e4d4c5]"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Message (optional)</label>
+                    <label className="block text-sm font-medium text-[#5a4636] mb-1">Mobile Number</label>
+                    <Input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                      placeholder="Include country code for mobile money"
+                      className="border-[#e4d4c5]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#5a4636] mb-1">Message (optional)</label>
                     <Textarea
                       value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      placeholder="Share your message of support..."
+                      onChange={(event) => setFormData({ ...formData, message: event.target.value })}
+                      placeholder="Share your message of support"
                       rows={3}
+                      className="border-[#e4d4c5]"
                     />
                   </div>
                 </div>
 
                 {submitMessage && (
-                  <div className={`p-3 rounded-lg mb-4 text-sm font-medium ${
-                    submitMessage.includes('✅')
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
+                  <div className={`mt-6 rounded-lg p-4 text-sm font-medium ${
+                    submitMessage.startsWith('❌')
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-green-100 text-green-700'
                   }`}>
                     {submitMessage}
                   </div>
                 )}
 
                 <Button
+                  type="button"
                   onClick={handleDonate}
-                  disabled={!selectedMethod || isSubmitting}
-                  className="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg font-bold"
+                  disabled={isSubmitting || !selectedTier || !selectedMethodId}
+                  className="mt-8 w-full bg-[#d58b28] hover:bg-[#c37a22] text-white flex items-center justify-center gap-2"
                 >
-                  {isSubmitting ? 'Processing...' : `Donate $${selectedType.amount}`}
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isSubmitting ? 'Processing...' : buttonLabel}
                 </Button>
-
-                <p className="text-xs text-gray-500 text-center mt-3">
-                  Your payment will be processed securely.
-                </p>
-              </Card>
-            </div>
-          )}
-        </div>
-
-        {/* Impact Info */}
-        <Card className="bg-gradient-to-r from-amber-600 to-amber-700 text-white p-8">
-          <h2 className="text-2xl font-bold mb-4">Your Impact Matters</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <p className="text-3xl font-bold mb-2">500+</p>
-              <p className="text-amber-100">Wildlife documented</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold mb-2">1000+</p>
-              <p className="text-amber-100">Community members trained</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold mb-2">100%</p>
-              <p className="text-amber-100">Funds go to conservation</p>
-            </div>
+                <p className="text-xs text-[#6d5a4a] text-center mt-4">Secure processing via trusted regional partners.</p>
+              </div>
+            </Card>
           </div>
-        </Card>
+        </section>
+
+        <section className="mt-20">
+          <Card className="bg-gradient-to-r from-[#d58b28] to-[#c37a22] text-white p-10 border-0">
+            <h2 className="text-3xl font-serif mb-6">Your Impact Matters</h2>
+            <div className="grid gap-6 sm:grid-cols-3 text-left">
+              <div>
+                <p className="text-4xl font-bold">{settings?.stats_value_one || '500+'}</p>
+                <p className="text-sm opacity-80 mt-2">{settings?.stats_label_one || 'Wildlife documented'}</p>
+              </div>
+              <div>
+                <p className="text-4xl font-bold">{settings?.stats_value_two || '1000+'}</p>
+                <p className="text-sm opacity-80 mt-2">{settings?.stats_label_two || 'Community members trained'}</p>
+              </div>
+              <div>
+                <p className="text-4xl font-bold">{settings?.stats_value_three || '100%'}</p>
+                <p className="text-sm opacity-80 mt-2">{settings?.stats_label_three || 'Funds go to conservation'}</p>
+              </div>
+            </div>
+          </Card>
+        </section>
       </div>
     </div>
   )

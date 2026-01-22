@@ -13,6 +13,7 @@ import { Login } from "@/pages/Login"
 import { Signup } from "@/pages/Signup"
 import { NotFound } from "@/pages/NotFound"
 import { AdminDonations } from "@/pages/AdminDonations"
+import { AdminSupport } from "@/pages/AdminSupport"
 import "./App.css"
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/admin/donations" element={<AdminDonations />} />
+                <Route path="/admin/support" element={<AdminSupport />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>

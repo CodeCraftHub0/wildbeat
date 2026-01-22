@@ -112,6 +112,57 @@ db.serialize(() => {
     FOREIGN KEY (donation_type_id) REFERENCES donation_types (id)
   )`);
 
+  // Support page settings
+  db.run(`CREATE TABLE IF NOT EXISTS support_page_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    hero_kicker TEXT,
+    hero_title TEXT,
+    hero_subtitle TEXT,
+    hero_description TEXT,
+    hero_cta_label TEXT,
+    hero_cta_link TEXT,
+    stats_label_one TEXT,
+    stats_value_one TEXT,
+    stats_label_two TEXT,
+    stats_value_two TEXT,
+    stats_label_three TEXT,
+    stats_value_three TEXT,
+    custom_title TEXT,
+    custom_description TEXT,
+    custom_button_label TEXT,
+    custom_button_link TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Support impact focus areas
+  db.run(`CREATE TABLE IF NOT EXISTS support_causes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    icon TEXT,
+    sort_order INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Support payment methods
+  db.run(`CREATE TABLE IF NOT EXISTS support_payment_methods (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    tagline TEXT,
+    description TEXT,
+    integration_key TEXT NOT NULL,
+    button_label TEXT,
+    icon TEXT,
+    currency TEXT DEFAULT 'USD',
+    config TEXT,
+    sort_order INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
   // Insert sample tours
   const tours = [
     ['Akagera National Park Safari', 'Experience Rwanda\'s premier wildlife destination with game drives through savanna landscapes.', 350.00, '2-3 Days', '2-8 People', 'Akagera National Park', 'Big Five wildlife viewing,Boat safari on Lake Ihema,Sunrise game drives,Professional photography opportunities', 'https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 4.9],
@@ -161,6 +212,68 @@ db.serialize(() => {
   const donationTypeStmt = db.prepare('INSERT OR IGNORE INTO donation_types (title, amount, description, icon_color, benefits, is_active, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
   donationTypes.forEach(type => donationTypeStmt.run(type));
   donationTypeStmt.finalize();
+
+  // Insert support page settings defaults
+  db.run(`INSERT OR IGNORE INTO support_page_settings (
+    id,
+    hero_kicker,
+    hero_title,
+    hero_subtitle,
+    hero_description,
+    hero_cta_label,
+    hero_cta_link,
+    stats_label_one,
+    stats_value_one,
+    stats_label_two,
+    stats_value_two,
+    stats_label_three,
+    stats_value_three,
+    custom_title,
+    custom_description,
+    custom_button_label,
+    custom_button_link
+  ) VALUES (
+    1,
+    'Join the Movement',
+    'Support Wildbeat\'s Mission',
+    'Help lyce "Wildbeat" Umuhoza promote sustainable tourism, protect wildlife, and empower local communities in Rwanda. Every contribution makes a difference.',
+    'Tourism has the power to transform lives and protect our natural heritage. Your support helps create lasting positive impact in Rwanda.',
+    'Donate Now',
+    '/support',
+    'Wildlife documented',
+    '500+',
+    'Community members trained',
+    '1000+',
+    'Funds go to conservation',
+    '100%',
+    'Custom Amount',
+    'Want to contribute a different amount? Every donation, big or small, helps support our mission.',
+    'Donate Custom Amount',
+    '/support/custom'
+  )`);
+
+  // Insert support focus areas
+  const causes = [
+    ['Wildlife Conservation', 'Protecting Rwanda\'s incredible biodiversity for future generations.', 'Mountain', 1],
+    ['Community Empowerment', 'Training local youth in sustainable tourism practices.', 'Users', 2],
+    ['Eco-Tourism Education', 'Spreading awareness about responsible travel.', 'GraduationCap', 3]
+  ];
+
+  const causeStmt = db.prepare('INSERT OR IGNORE INTO support_causes (title, description, icon, sort_order) VALUES (?, ?, ?, ?)');
+  causes.forEach(cause => causeStmt.run(cause));
+  causeStmt.finalize();
+
+  // Insert payment methods defaults
+  const paymentMethods = [
+    ['Credit or Debit Card', 'Secure payments for Visa, Mastercard, and AmEx.', 'Process card payments worldwide.', 'flutterwave_card', 'Pay with Card', 'CreditCard', 'USD', JSON.stringify({ payment_options: 'card' }), 1],
+    ['Mobile Money', 'M-Pesa, MTN, Airtel and more.', 'Fast mobile money payments across East Africa.', 'flutterwave_mobile', 'Pay with Mobile Money', 'Smartphone', 'KES', JSON.stringify({ payment_options: 'mpesa, mobilemoneyuganda, mobilemoneyrwanda, mobilemoneyzambia' }), 2],
+    ['M-Pesa (Kenya)', 'Pay directly from your M-Pesa wallet.', 'Instant STK push to your M-Pesa account.', 'mpesa_stk', 'Pay with M-Pesa', 'PhoneCall', 'KES', JSON.stringify({ business_shortcode: '174379', passkey: 'YOUR_PASSKEY', callback: 'https://example.com/api/mpesa/callback' }), 3],
+    ['Digital Wallets', 'Apple Pay, Google Pay, PayPal.', 'Use your preferred online wallet for quick checkout.', 'flutterwave_wallet', 'Pay with Wallet', 'Wallet', 'USD', JSON.stringify({ payment_options: 'card,banktransfer,barter,ussd' }), 4]
+  ];
+
+  const paymentStmt = db.prepare('INSERT OR IGNORE INTO support_payment_methods (name, tagline, description, integration_key, button_label, icon, currency, config, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  paymentMethods.forEach(method => paymentStmt.run(method));
+  paymentStmt.finalize();
 
   console.log('✅ Database created successfully!');
   console.log('📍 Database location:', dbPath);

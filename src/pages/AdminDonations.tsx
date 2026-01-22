@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { AlertCircle, Edit2, Trash2, Plus, DollarSign, Users } from 'lucide-react'
+import { apiUrl } from '@/lib/api-local'
 
 type DonationType = {
   id: number
@@ -49,7 +50,7 @@ export function AdminDonations() {
   const { data: donationTypes = [], refetch: refetchTypes, isLoading: typesLoading } = useQuery<DonationType[]>({
     queryKey: ['donation-types-admin'],
     queryFn: async () => {
-      const response = await fetch('/api/donation-types/all', {
+      const response = await fetch(apiUrl('/donation-types/all'), {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) throw new Error('Failed to fetch donation types')
@@ -62,7 +63,7 @@ export function AdminDonations() {
   const { data: donations = [], isLoading: donationsLoading } = useQuery<Donation[]>({
     queryKey: ['donations-admin'],
     queryFn: async () => {
-      const response = await fetch('/api/donations', {
+      const response = await fetch(apiUrl('/donations'), {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) throw new Error('Failed to fetch donations')
@@ -75,7 +76,7 @@ export function AdminDonations() {
   const { data: stats = [] } = useQuery<DonationStat[]>({
     queryKey: ['donations-stats'],
     queryFn: async () => {
-      const response = await fetch('/api/donations/stats', {
+      const response = await fetch(apiUrl('/donations/stats'), {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) throw new Error('Failed to fetch stats')
@@ -104,7 +105,7 @@ export function AdminDonations() {
     }
 
     try {
-      const response = await fetch('/api/donation-types', {
+      const response = await fetch(apiUrl('/donation-types'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -134,7 +135,7 @@ export function AdminDonations() {
     if (!confirm('Are you sure you want to deactivate this donation type?')) return
 
     try {
-      const response = await fetch(`/api/donation-types/${id}`, {
+      const response = await fetch(apiUrl(`/donation-types/${id}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })
