@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 30 45% 15%;
+    --foreground: 40 35% 92%;
+    --card: 30 45% 20%;
+    --card-foreground: 40 35% 92%;
+    --popover: 30 45% 20%;
+    --popover-foreground: 40 35% 92%;
+    --primary: 36 55% 55%;
+    --primary-foreground: 30 45% 15%;
+    --secondary: 30 45% 25%;
+    --secondary-foreground: 40 35% 92%;
+    --muted: 30 45% 25%;
+    --muted-foreground: 40 35% 70%;
+    --accent: 36 55% 55%;
+    --accent-foreground: 30 45% 15%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 30 45% 30%;
+    --input: 30 45% 30%;
+    --ring: 36 55% 55%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .safari-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .safari-section {
+    @apply py-16 lg:py-24;
+  }
+  
+  .safari-heading {
+    @apply text-4xl sm:text-5xl lg:text-6xl font-serif font-bold;
+  }
+  
+  .safari-subheading {
+    @apply text-2xl sm:text-3xl font-serif font-semibold;
+  }
+  
+  .safari-text {
+    @apply text-muted-foreground leading-relaxed;
+  }
+  
+  .safari-card {
+    @apply bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300;
+  }
+  
+  .safari-gradient-overlay {
+    @apply absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/60;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(40, 35%, 92%);
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(36, 55%, 55%);
+  border-radius: 4px;
+}
