@@ -14,7 +14,7 @@ const tours = [
     groupSize: "2-8 People",
     location: "Akagera National Park",
     highlights: ["Big Five wildlife viewing", "Boat safari on Lake Ihema", "Sunrise game drives", "Professional photography opportunities"],
-    image: "https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    image: "/images/Akagera National Park.jpg",
     rating: 4.9
   },
   {
@@ -26,7 +26,7 @@ const tours = [
     groupSize: "1-8 People",
     location: "Volcanoes National Park",
     highlights: ["Mountain gorilla encounters", "Expert tracker guides", "Conservation education", "Certificate of participation"],
-    image: "https://images.unsplash.com/photo-1564760055775-d63b17a55c44?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    image: "/images/gorilla-trekking.jpeg",
     rating: 5.0
   },
   {
@@ -38,7 +38,7 @@ const tours = [
     groupSize: "2-6 People",
     location: "Nyungwe National Park",
     highlights: ["Chimpanzee tracking", "Canopy walkway experience", "Waterfall hikes", "Bird watching tours"],
-    image: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    image: "/images/Nyungwe National Park..jpg",
     rating: 4.8
   },
   {

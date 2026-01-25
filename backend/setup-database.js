@@ -165,9 +165,9 @@ db.serialize(() => {
 
   // Insert sample tours
   const tours = [
-    ['Akagera National Park Safari', 'Experience Rwanda\'s premier wildlife destination with game drives through savanna landscapes.', 350.00, '2-3 Days', '2-8 People', 'Akagera National Park', 'Big Five wildlife viewing,Boat safari on Lake Ihema,Sunrise game drives,Professional photography opportunities', 'https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 4.9],
-    ['Gorilla Trekking Experience', 'Embark on a life-changing journey to meet mountain gorillas in their natural habitat.', 1500.00, 'Full Day', '1-8 People', 'Volcanoes National Park', 'Mountain gorilla encounters,Expert tracker guides,Conservation education,Certificate of participation', 'https://images.unsplash.com/photo-1564760055775-d63b17a55c44?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 5.0],
-    ['Nyungwe Forest Adventure', 'Discover Rwanda\'s ancient rainforest with chimpanzee tracking and canopy walks.', 280.00, '2 Days', '2-6 People', 'Nyungwe National Park', 'Chimpanzee tracking,Canopy walkway experience,Waterfall hikes,Bird watching tours', 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 4.8],
+    ['Akagera National Park Safari', 'Experience Rwanda\'s premier wildlife destination with game drives through savanna landscapes.', 350.00, '2-3 Days', '2-8 People', 'Akagera National Park', 'Big Five wildlife viewing,Boat safari on Lake Ihema,Sunrise game drives,Professional photography opportunities', '/images/Akagera National Park.jpg', 4.9],
+    ['Gorilla Trekking Experience', 'Embark on a life-changing journey to meet mountain gorillas in their natural habitat.', 1500.00, 'Full Day', '1-8 People', 'Volcanoes National Park', 'Mountain gorilla encounters,Expert tracker guides,Conservation education,Certificate of participation', '/images/gorilla-trekking.jpeg', 5.0],
+    ['Nyungwe Forest Adventure', 'Discover Rwanda\'s ancient rainforest with chimpanzee tracking and canopy walks.', 280.00, '2 Days', '2-6 People', 'Nyungwe National Park', 'Chimpanzee tracking,Canopy walkway experience,Waterfall hikes,Bird watching tours', '/images/Nyungwe National Park..jpg', 4.8],
     ['Kigali City Tour', 'Explore Rwanda\'s vibrant capital city with cultural and historical sites.', 75.00, 'Half Day', '1-10 People', 'Kigali City', 'Genocide Memorial visit,Local market exploration,Coffee tasting experience,Cultural center tours', 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 4.7],
     ['Complete Rwanda Experience', 'The ultimate 7-day journey combining all of Rwanda\'s highlights.', 3500.00, '7 Days', '2-6 People', 'Multiple Locations', 'All major attractions,Luxury accommodations,Private transportation,Expert guide throughout', 'https://images.unsplash.com/photo-1516426122078-c23e76319801?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 4.9]
   ];
@@ -178,12 +178,11 @@ db.serialize(() => {
 
   // Insert sample gallery images
   const gallery = [
-    ['Elephant Family', 'https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 'wildlife', 'Elephants in Akagera National Park'],
-    ['Mountain Gorilla', 'https://images.unsplash.com/photo-1564760055775-d63b17a55c44?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 'wildlife', 'Mountain Gorilla'],
+    ['Elephant Family', '/images/Akagera National Park.jpg', 'wildlife', 'Elephants in Akagera National Park'],
+    ['Mountain Gorilla', '/images/gorilla-trekking.jpeg', 'wildlife', 'Mountain Gorilla'],
     ['Savanna Sunset', 'https://images.unsplash.com/photo-1516426122078-c23e76319801?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 'landscape', 'African Sunset'],
-    ['Nyungwe Canopy', 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 'landscape', 'Nyungwe Forest'],
+    ['Nyungwe Canopy', '/images/Nyungwe National Park..jpg', 'landscape', 'Nyungwe Forest'],
     ['Safari Adventure', 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 'adventure', 'Safari Jeep'],
-    ['Zebra Crossing', 'https://images.unsplash.com/photo-1547036967-23d11aacaee0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', 'wildlife', 'Zebras at waterhole']
   ];
 
   const galleryStmt = db.prepare('INSERT OR IGNORE INTO gallery (title, image_url, category, alt_text) VALUES (?, ?, ?, ?)');
@@ -205,25 +204,7 @@ db.serialize(() => {
   donationTypeStmt.finalize();
 
   // Insert support page settings defaults
-  db.run(`INSERT OR IGNORE INTO support_page_settings (
-    id,
-    hero_kicker,
-    hero_title,
-    hero_subtitle,
-    hero_description,
-    hero_cta_label,
-    hero_cta_link,
-    stats_label_one,
-    stats_value_one,
-    stats_label_two,
-    stats_value_two,
-    stats_label_three,
-    stats_value_three,
-    custom_title,
-    custom_description,
-    custom_button_label,
-    custom_button_link
-  ) VALUES (
+  const supportSettings = [
     1,
     'Join the Movement',
     'Support Wildbeat\'s Mission',
@@ -241,7 +222,16 @@ db.serialize(() => {
     'Want to contribute a different amount? Every donation, big or small, helps support our mission.',
     'Donate Custom Amount',
     '/support/custom'
-  )`);
+  ];
+  
+  const supportStmt = db.prepare(`INSERT OR IGNORE INTO support_page_settings (
+    id, hero_kicker, hero_title, hero_subtitle, hero_description,
+    hero_cta_label, hero_cta_link, stats_label_one, stats_value_one,
+    stats_label_two, stats_value_two, stats_label_three, stats_value_three,
+    custom_title, custom_description, custom_button_label, custom_button_link
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  supportStmt.run(supportSettings);
+  supportStmt.finalize();
 
   // Insert support focus areas
   const causes = [

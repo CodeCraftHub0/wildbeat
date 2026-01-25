@@ -41,7 +41,7 @@ export function NotFound() {
 
           <div className="mt-12">
             <img
-              src="https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+              src="/images/Akagera National Park.jpg"
               alt="Elephant in the wild"
               className="mx-auto rounded-lg shadow-lg max-w-md"
             />

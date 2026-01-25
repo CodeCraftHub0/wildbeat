@@ -8,14 +8,14 @@ import { galleryApi } from "@/lib/api-local"
 const galleryImages = [
   {
     id: 1,
-    src: "https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    src: "/images/Akagera National Park.jpg",
     alt: "Elephants in Akagera National Park",
     category: "wildlife",
     title: "Elephant Family"
   },
   {
     id: 2,
-    src: "https://images.unsplash.com/photo-1564760055775-d63b17a55c44?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    src: "/images/gorilla-trekking.jpeg",
     alt: "Mountain Gorilla",
     category: "wildlife",
     title: "Mountain Gorilla"
@@ -29,7 +29,7 @@ const galleryImages = [
   },
   {
     id: 4,
-    src: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    src: "/images/Nyungwe National Park..jpg",
     alt: "Nyungwe Forest",
     category: "landscape",
     title: "Nyungwe Canopy"
@@ -40,13 +40,6 @@ const galleryImages = [
     alt: "Safari Jeep",
     category: "adventure",
     title: "Safari Adventure"
-  },
-  {
-    id: 6,
-    src: "https://images.unsplash.com/photo-1547036967-23d11aacaee0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    alt: "Zebras at waterhole",
-    category: "wildlife",
-    title: "Zebra Crossing"
   },
   {
     id: 7,

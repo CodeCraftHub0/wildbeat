@@ -9,7 +9,7 @@ export function CTA() {
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1547036967-23d11aacaee0?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')"
+          backgroundImage: "url('/images/Akagera National Park.jpg')"
         }}
       />
       <div className="safari-gradient-overlay" />

@@ -13,7 +13,7 @@ const featuredTours = [
     duration: "2-3 Days",
     groupSize: "2-8 People",
     location: "Akagera National Park",
-    image: "https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+    image: "/images/Akagera National Park.jpg"
   },
   {
     id: 2,
@@ -23,7 +23,7 @@ const featuredTours = [
     duration: "Full Day",
     groupSize: "1-8 People",
     location: "Volcanoes National Park",
-    image: "https://images.unsplash.com/photo-1564760055775-d63b17a55c44?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+    image: "/images/gorilla-trekking.jpeg"
   },
   {
     id: 3,
@@ -33,7 +33,7 @@ const featuredTours = [
     duration: "2 Days",
     groupSize: "2-6 People",
     location: "Nyungwe National Park",
-    image: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+    image: "/images/Nyungwe National Park..jpg"
   }
 ]
 

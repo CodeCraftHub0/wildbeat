@@ -64,20 +64,19 @@ CREATE TABLE donations (
 
 -- Insert sample tours
 INSERT INTO tours (title, description, price, duration, group_size, location, highlights, image_url, rating) VALUES
-('Akagera National Park Safari', 'Experience Rwanda''s premier wildlife destination with game drives through savanna landscapes.', 350.00, '2-3 Days', '2-8 People', 'Akagera National Park', ARRAY['Big Five wildlife viewing', 'Boat safari on Lake Ihema', 'Sunrise game drives', 'Professional photography opportunities'], 'https://images.unsplash.com/photo-1551632811-561732d1e306', 4.9),
-('Gorilla Trekking Experience', 'Embark on a life-changing journey to meet mountain gorillas in their natural habitat.', 1500.00, 'Full Day', '1-8 People', 'Volcanoes National Park', ARRAY['Mountain gorilla encounters', 'Expert tracker guides', 'Conservation education', 'Certificate of participation'], 'https://images.unsplash.com/photo-1564760055775-d63b17a55c44', 5.0),
-('Nyungwe Forest Adventure', 'Discover Rwanda''s ancient rainforest with chimpanzee tracking and canopy walks.', 280.00, '2 Days', '2-6 People', 'Nyungwe National Park', ARRAY['Chimpanzee tracking', 'Canopy walkway experience', 'Waterfall hikes', 'Bird watching tours'], 'https://images.unsplash.com/photo-1544735716-392fe2489ffa', 4.8),
+('Akagera National Park Safari', 'Experience Rwanda''s premier wildlife destination with game drives through savanna landscapes.', 350.00, '2-3 Days', '2-8 People', 'Akagera National Park', ARRAY['Big Five wildlife viewing', 'Boat safari on Lake Ihema', 'Sunrise game drives', 'Professional photography opportunities'], '/images/Akagera National Park.jpg', 4.9),
+('Gorilla Trekking Experience', 'Embark on a life-changing journey to meet mountain gorillas in their natural habitat.', 1500.00, 'Full Day', '1-8 People', 'Volcanoes National Park', ARRAY['Mountain gorilla encounters', 'Expert tracker guides', 'Conservation education', 'Certificate of participation'], '/images/gorilla-trekking.jpeg', 5.0),
+('Nyungwe Forest Adventure', 'Discover Rwanda''s ancient rainforest with chimpanzee tracking and canopy walks.', 280.00, '2 Days', '2-6 People', 'Nyungwe National Park', ARRAY['Chimpanzee tracking', 'Canopy walkway experience', 'Waterfall hikes', 'Bird watching tours'], '/images/Nyungwe National Park..jpg', 4.8),
 ('Kigali City Tour', 'Explore Rwanda''s vibrant capital city with cultural and historical sites.', 75.00, 'Half Day', '1-10 People', 'Kigali City', ARRAY['Genocide Memorial visit', 'Local market exploration', 'Coffee tasting experience', 'Cultural center tours'], 'https://images.unsplash.com/photo-1578662996442-48f60103fc96', 4.7),
 ('Complete Rwanda Experience', 'The ultimate 7-day journey combining all of Rwanda''s highlights.', 3500.00, '7 Days', '2-6 People', 'Multiple Locations', ARRAY['All major attractions', 'Luxury accommodations', 'Private transportation', 'Expert guide throughout'], 'https://images.unsplash.com/photo-1516426122078-c23e76319801', 4.9);
 
 -- Insert sample gallery images
 INSERT INTO gallery (title, image_url, category, alt_text) VALUES
-('Elephant Family', 'https://images.unsplash.com/photo-1551632811-561732d1e306', 'wildlife', 'Elephants in Akagera National Park'),
-('Mountain Gorilla', 'https://images.unsplash.com/photo-1564760055775-d63b17a55c44', 'wildlife', 'Mountain Gorilla'),
+('Elephant Family', '/images/Akagera National Park.jpg', 'wildlife', 'Elephants in Akagera National Park'),
+('Mountain Gorilla', '/images/gorilla-trekking.jpeg', 'wildlife', 'Mountain Gorilla'),
 ('Savanna Sunset', 'https://images.unsplash.com/photo-1516426122078-c23e76319801', 'landscape', 'African Sunset'),
-('Nyungwe Canopy', 'https://images.unsplash.com/photo-1544735716-392fe2489ffa', 'landscape', 'Nyungwe Forest'),
-('Safari Adventure', 'https://images.unsplash.com/photo-1469474968028-56623f02e42e', 'adventure', 'Safari Jeep'),
-('Zebra Crossing', 'https://images.unsplash.com/photo-1547036967-23d11aacaee0', 'wildlife', 'Zebras at waterhole');
+('Nyungwe Canopy', '/images/Nyungwe National Park..jpg', 'landscape', 'Nyungwe Forest'),
+('Safari Adventure', 'https://images.unsplash.com/photo-1469474968028-56623f02e42e', 'adventure', 'Safari Jeep');
 
 -- Enable Row Level Security
 ALTER TABLE tours ENABLE ROW LEVEL SECURITY;
